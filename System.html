@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cyber Security Quiz — Animated Binary Console (FINAL FIX)</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Final Color Palette & Variables (High-Contrast Neon Green/Red for Hard Mode) */
+    :root {
+      --bg-dark: #000000; 
+      --card: rgba(0, 30, 0, 0.95); 
+      --accent: #39ff14; 
+      --muted: #00b300;
+      --correct: #00ff00; 
+      --wrong: #ff0000; 
+      --time-bar-bg: rgba(57, 255, 20, 0.1);
+      --time-bar-fill: var(--accent);
+    }
+
+    /* Hard Mode Style Override */
+    .hard-mode-bg {
+        background-color: rgba(50, 0, 0, 1); /* Darker red tint */
+    }
+    .hard-mode-card {
+        border-color: var(--wrong) !important;
+        box-shadow: 0 0 25px rgba(255, 0, 0, 0.7) !important; 
+    }
+    
+    /* Global Resets and Terminal Style */
+    * { box-sizing: border-box; }
+    body, html { 
+        margin: 0; padding: 0; width: 100%; height: 100%; 
+        font-family: 'VT323', monospace; 
+        color: var(--accent); 
+        background-color: var(--bg-dark);
+        overflow-x: hidden;
+        transition: background-color 0.5s; /* Smooth transition for hard mode change */
+    }
+    
+    /* --- LIVE ANIMATED BINARY RAIN BACKGROUND --- */
+    #matrix-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 0.6; 
+    }
+
+    /* Content Wrapper must sit above the canvas */
+    .container { 
+        max-width: 1000px; margin: auto; padding: 20px; 
+        position: relative; z-index: 10; 
+    }
+    
+    /* Header and Logo */
+    header { 
+        display: flex; align-items: center; gap: 16px; 
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--accent);
+        padding-bottom: 15px;
+        box-shadow: 0 4px 15px rgba(57, 255, 20, 0.5); 
+    }
+    .logo { 
+        width: 60px; height: 60px; overflow: hidden; 
+        border: 2px solid var(--accent);
+        box-shadow: 0 0 10px var(--accent);
+        background: var(--bg-dark);
+        border-radius: 50%; /* Added a border-radius for a cleaner look with round logo */
+    }
+    h1 { margin: 0; font-size: 38px; color: #ffffff; text-shadow: 0 0 15px var(--accent); }
+    .sub { color: var(--muted); font-size: 18px; margin-top: 5px; text-shadow: none; }
+    
+    /* Card Styles */
+    .card { 
+        background: var(--card); padding: 30px; border: 2px solid var(--accent); 
+        margin-top: 30px; position: relative; 
+        box-shadow: 0 0 25px rgba(57, 255, 20, 0.7); 
+        transition: border-color 0.5s, box-shadow 0.5s, background 0.5s;
+    }
+    
+    /* Intro Slide Styling with Typing Animation */
+    #introCard {
+        text-align: center;
+        padding: 80px 40px;
+    }
+    #introText {
+        min-height: 150px;
+        text-align: left;
+        padding: 10px;
+        font-size: 22px;
+        line-height: 1.8;
+        color: #ffffff;
+    }
+    /* Typing cursor effect */
+    #introText::after {
+        content: '_';
+        font-size: 1em;
+        animation: blink 0.8s infinite;
+    }
+    @keyframes blink {
+        50% { opacity: 0; }
+    }
+
+    #introCard h2 {
+        font-size: 44px;
+        color: #ffffff; 
+        text-shadow: 0 0 15px var(--accent);
+        margin-bottom: 40px;
+    }
+    #introCard strong { color: var(--accent); }
+    
+    /* Scoring Rules Table */
+    .scoring-rules {
+        width: 100%;
+        margin: 20px 0 40px;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 18px;
+    }
+    .scoring-rules th, .scoring-rules td {
+        border: 1px solid var(--muted);
+        padding: 10px;
+    }
+    .scoring-rules th {
+        background: rgba(57, 255, 20, 0.1);
+        color: #ffffff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .score-main { color: var(--correct); font-weight: bold; }
+    .score-hard-correct { color: var(--correct); font-weight: bold; }
+    .score-hard-incorrect { color: var(--wrong); font-weight: bold; }
+
+    /* Hard Mode Warning Banner */
+    #hardModeWarning {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 100;
+        background: rgba(150, 0, 0, 0.9);
+        color: #ffffff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 60px;
+        font-weight: bold;
+        letter-spacing: 5px;
+        text-shadow: 0 0 20px var(--wrong);
+        animation: warningFlash 0.5s infinite alternate;
+        display: none;
+    }
+    @keyframes warningFlash {
+        from { opacity: 1; }
+        to { opacity: 0.7; }
+    }
+
+    /* Quiz Elements */
+    .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px dashed var(--muted); padding-bottom: 15px;}
+    .q-header div { font-weight: bold; font-size: 1.4em; }
+    .progress-wrap { flex:1; margin: 0 20px; height: 12px; background: var(--time-bar-bg); border: 1px solid var(--accent); border-radius: 0; overflow: hidden; }
+    .progress { height:100%; background: var(--time-bar-fill); transition: width 0.3s; box-shadow: 0 0 5px var(--accent); }
+    .timer-box { color: var(--accent); min-width: 50px; text-align: right; font-size: 1.6em; }
+    .question { margin: 30px 0; font-size: 28px; color: #ffffff; text-shadow: 0 0 5px var(--accent); }
+    .options { display: flex; flex-direction: column; gap: 10px; }
+    
+    /* Option Buttons */
+    .opt-btn { 
+        padding: 16px; 
+        background: rgba(57, 255, 20, 0.08); 
+        border: 1px solid var(--muted); 
+        cursor: pointer; 
+        color: var(--accent);
+        font-family: inherit;
+        font-size: 20px;
+        text-transform: uppercase;
+        border-radius: 0;
+    }
+    .opt-btn:not([disabled]):hover { background: rgba(57, 255, 20, 0.3); border-color: #ffffff; box-shadow: 0 0 12px var(--accent); }
+    .opt-btn.selected { border-color: var(--accent); background: rgba(57, 255, 20, 0.45); }
+    .opt-btn.correct { background: var(--correct); border-color: var(--correct); color: var(--bg-dark); font-weight: bold; }
+    .opt-btn.wrong { background: var(--wrong); border-color: var(--wrong); color: #000; }
+    .opt-btn:disabled { opacity: 0.7; }
+
+    /* Action Buttons */
+    .btn { 
+        padding: 15px 30px; border: 2px solid var(--accent); border-radius: 0; cursor: pointer; 
+        background: var(--accent); color: var(--bg-dark); font-weight: bold; 
+        text-transform: uppercase; letter-spacing: 2px;
+        font-family: inherit; font-size: 20px;
+        box-shadow: 0 0 15px var(--accent);
+    }
+    .btn:hover:not([disabled]) { background: var(--bg-dark); color: var(--accent); box-shadow: 0 0 20px var(--accent); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Feedback and Results */
+    .explanation-box { 
+        margin-top:25px; 
+        padding:20px; 
+        background: rgba(255, 255, 255, 0.15); 
+        color: var(--accent); 
+        border: 2px solid var(--accent);
+        display:none;
+        font-size: 18px;
+    }
+    .explanation-box strong { color: #ffffff; font-size: 1.2em; }
+    .result h2 { color: #ffffff; font-size: 3.2em; text-shadow: 0 0 15px var(--accent); }
+    .result p strong { font-size: 1.6em; color: var(--accent); }
+    
+    /* Leaderboard list style */
+    #leaderboardList { 
+        list-style-type: decimal; 
+        padding-left: 20px;
+        font-size: 20px;
+    }
+    #leaderboardList li {
+        margin-bottom: 10px;
+        padding: 8px;
+        border-bottom: 1px dotted var(--muted);
+    }
+
+    /* Footer and Tips */
+    footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 16px; text-shadow: 0 0 5px var(--muted); }
+    #tipList { list-style-type: none; padding-left: 0; }
+    #tipList li { margin-bottom: 8px; border-left: 5px solid var(--muted); padding-left: 10px; }
+    #tipList strong { color: #ffffff; }
+  </style>
+</head>
+<body>
+  <canvas id="matrix-canvas"></canvas>
+
+  <div id="hardModeWarning">WARNING: HARD MODE ACTIVATED!</div>
+
+  <div class="container">
+    <header>
+      <div class="logo" id="schoolLogoContainer">
+        <img id="schoolLogo" src="https://via.placeholder.com/60/000000/39ff14?text=SEC" 
+             alt="St. Mary's School, Sunder Nagar Logo" 
+             style="width:100%; height:100%; object-fit:cover; border-radius: 50%; /* Ensure round logo looks good */">
+      </div>
+      <div>
+        <h1>SYSTEM OVERRIDE: TERMINAL SECURITY QUIZ</h1>
+        <div class="sub">Created by: **Aarish Walia**</div>
+      </div>
+    </header>
+
+    <div class="card" id="introCard">
+        <h2>>> INITIALIZING CYBER THREAT ASSESSMENT</h2>
+        <div id="introText"></div>
+
+        <table class="scoring-rules">
+            <thead>
+                <tr>
+                    <th>STAGE</th>
+                    <th>CORRECT RESPONSE</th>
+                    <th>INCORRECT RESPONSE</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>MAIN QUIZ (20 Qs)</td>
+                    <td class="score-main">+1 POINT</td>
+                    <td>0 POINTS</td>
+                </tr>
+                <tr>
+                    <td>HARD MODE REVIEW</td>
+                    <td class="score-hard-correct">+2 POINTS</td>
+                    <td class="score-hard-incorrect">-1 POINT (PENALTY!)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button id="startBtn" class="btn" onclick="startQuiz()" style="display: none;">>> START MAIN QUIZ (20 Qs)</button>
+    </div>
+
+    <div class="card" id="quizCard" style="display: none;">
+      <div class="q-header">
+        <div id="qCount">SECURITY QUIZ — Q1 / 20</div>
+        <div class="progress-wrap"><div class="progress" id="progressBar"></div></div>
+        <div class="timer-box" id="timerDisplay">--s</div>
+      </div>
+      <div class="question" id="questionText">Question text here</div>
+      <div class="options" id="optionsList"></div>
+      <div id="explanationBox" class="explanation-box"></div>
+      
+      <div style="margin-top:30px; display:flex; justify-content: flex-end; align-items: center;">
+        <button id="nextBtn" class="btn" style="min-width: 200px;">CONFIRM ANSWER</button>
+      </div>
+    </div>
+
+    <div class="card" id="resultCard" style="display: none;">
+      <div class="result" id="resultArea"></div>
+    </div>
+
+    <div class="card" id="leaderboardCard" style="display: none;">
+      <h3>>> LEADERBOARD: TOP 5 AGENTS</h3>
+      <ol id="leaderboardList"></ol>
+    </div>
+
+    <aside class="card">
+      <h3>>> ESSENTIAL SECURITY PROTOCOLS</h3>
+      <ul id="tipList"></ul>
+    </aside>
+
+    <footer>[ACCESS GRANTED] — SYSTEM STATUS: OPERATIONAL — AUTHOR: AARISH WALIA</footer>
+  </div>
+
+  <script>
+    // --- QUIZ DATA (20 Normal, 5 Hard Concepts for Review) ---
+    const QUIZ = [
+      { q: "What term describes a cyber attack that uses fraudulent communication to trick people into revealing sensitive data?", opts: ["DDoS Attack", "Phishing", "Buffer Overflow", "Ransomware"], a: 1, explain: "Phishing uses fake emails or messages to steal sensitive info like passwords or credit card numbers. Always verify the source!" },
+      { q: "What is the primary function of Two-Factor Authentication (2FA)?", opts: ["To speed up login times", "To require a second verification step, even if your password is stolen", "To encrypt your hard drive", "To scan your computer for viruses"], a: 1, explain: "2FA adds an essential layer of security, requiring something you know (password) and something you have (your phone/key)." },
+      { q: "Which element in a web browser indicates that your connection to the website is encrypted and secure?", opts: ["The presence of HTTP", "The URL ending in .com", "A padlock icon and 'HTTPS'", "A pop-up window"], a: 2, explain: "The 'S' in HTTPS stands for 'Secure,' meaning data transmission is encrypted. Always check for the padlock!" },
+      { q: "What is a system designed to block unauthorized access while permitting outward communication?", opts: ["An Antivirus Program", "A Firewall", "A Proxy Server", "A Router"], a: 1, explain: "A Firewall acts as a barrier, monitoring and controlling network traffic based on predetermined security rules." },
+      { q: "What type of malware encrypts your files and demands payment for their release?", opts: ["Spyware", "Adware", "Ransomware", "A Worm"], a: 2, explain: "Ransomware holds your data hostage. The best defense is maintaining **isolated, offline backups**." },
+      { q: "What is the single biggest cybersecurity weakness in any organization or family?", opts: ["Weak network cables", "Outdated servers", "Humans (user error)", "Too much automation"], a: 2, explain: "User error, such as clicking a bad link or sharing a password, remains the leading cause of successful cyberattacks." },
+      { q: "Which security principle ensures that data is accessible when authorized users need it?", opts: ["Confidentiality", "Integrity", "Availability", "Authenticity"], a: 2, explain: "Availability, a pillar of the CIA Triad, ensures systems are operational and data is ready for legitimate users." },
+      { q: "What is the safest way to store the passwords for dozens of different accounts?", opts: ["Write them down in a notebook", "Use the same password for all accounts", "Store them in a dedicated, encrypted password manager application", "Save them in a text file on your desktop"], a: 2, explain: "Password managers create unique, complex passwords for every site and store them in an encrypted vault, making them the most secure option." },
+      { q: "If you receive an unexpected email from your bank asking you to click a link and 'verify your account details,' you should:", opts: ["Click the link immediately to prevent account suspension", "Reply asking if the email is legitimate", "Navigate to the bank's official website manually or call them to verify the request", "Ignore the email entirely"], a: 2, explain: "Never click links in suspicious emails. Always verify independently." },
+      { q: "What is 'Shoulder Surfing'?", opts: ["Looking over someone's shoulder to steal confidential data (PINs, passwords)", "Using a public Wi-Fi network without encryption", "An attempt to gain physical access to a server", "Monitoring network traffic"], a: 0, explain: "Shoulder surfing is a simple but effective social engineering technique; always be mindful of who can see your screen in public." },
+      { q: "The practice of creating backups and storing one copy entirely separate from your network is called:", opts: ["Hot-Swapping", "Air-Gapping", "Cloud-Mirroring", "Data Syncing"], a: 1, explain: "Air-gapping a backup means physically or logically isolating it from the network. Crucial for protecting against ransomware." },
+      { q: "What is the risk of using public Wi-Fi without a VPN?", opts: ["Your phone battery will drain faster", "Your ISP can see your data", "Nearby hackers can eavesdrop on your data (Man-in-the-Middle attacks)", "It slows down the internet speed"], a: 2, explain: "Public Wi-Fi is often unencrypted, allowing anyone on the network to intercept your browsing data, logins, and emails." },
+      { q: "A 'Brute Force Attack' is primarily used to discover what?", opts: ["A person's location", "The weakest network cable", "A password or encryption key by trying every possible combination", "The version of an operating system"], a: 2, explain: "A Brute Force attack involves systematic, automated guessing of credentials. This is why complex, long passwords are vital." },
+      { q: "The policy that says a user should only have access to the specific resources absolutely necessary to do their job is called:", opts: ["Need-to-Know Principle", "The Golden Rule", "Maximum Access Policy", "Unlimited Privilege"], a: 0, explain: "The **Principle of Least Privilege** (or Need-to-Know) minimizes damage if an account is compromised." },
+      { q: "Which is a characteristic of a malicious link in an email?", opts: ["The link address matches the displayed text perfectly", "The link is long and descriptive", "It uses an unusual or wrong domain name (e.g., amazonn.com)", "It is a short, simple URL"], a: 2, explain: "Attackers often use subtle misspellings, called **typosquatting** (e.g., `micros0ft.com`), to trick users into clicking." },
+      { q: "What is the purpose of software patches and updates?", opts: ["To add new emojis", "To fix security bugs and vulnerabilities", "To increase advertising revenue", "To change the background color"], a: 1, explain: "Updates primarily fix **security flaws** (vulnerabilities) that hackers could exploit." },
+      { q: "What is 'Adware'?", opts: ["Software that tracks your location", "Software that displays unwanted advertisements", "A type of firewall", "A strong encryption method"], a: 1, explain: "Adware is unwanted software that bombards you with pop-up ads, often bundled with free legitimate programs." },
+      { q: "Which protocol is used to securely transfer files over a network?", opts: ["HTTP", "FTP", "SFTP or SCP", "ARP"], a: 2, explain: "While FTP transfers files, **SFTP (Secure File Transfer Protocol)** or **SCP** uses SSH encryption to transfer files securely." },
+      { q: "What does 'Confidentiality' mean in the CIA triad of security?", opts: ["Data is always available", "Data is accurate and consistent", "Only authorized users can access the data", "Data is backed up offsite"], a: 2, explain: "Confidentiality ensures that data is kept private and only viewed by those who have been authorized." },
+      { q: "An employee leaving their workstation unlocked when they walk away is an example of what kind of vulnerability?", opts: ["Hardware failure", "Zero-day exploit", "Social engineering/Physical security lapse", "Network congestion"], a: 2, explain: "Leaving a workstation unlocked is a simple **physical security lapse**, easily exploited via social engineering." }
+    ];
+
+    // Separate concepts for Hard Mode Review (5 questions total)
+    const FULL_HARD_CONCEPTS = [
+      { q: "Which 2FA method is most resistant to Man-in-the-Middle attacks?", opts: ["SMS OTP", "Hardware Security Key (FIDO)", "Email link", "Security Question"], a: 1, explain: "Hardware keys are phishing-resistant because they require a physical presence and use cryptographic proof of identity that cannot be intercepted." },
+      { q: "An attack that uses a massive volume of traffic to overload a target server, making it unavailable, is called:", opts: ["SQL Injection", "XSS", "DDoS (Distributed Denial of Service)", "Buffer Overflow"], a: 2, explain: "DDoS attacks use many compromised systems (a Botnet) to flood a target, crashing or disabling it." },
+      { q: "What is a 'Zero-Day' vulnerability?", opts: ["A flaw patched 10 years ago", "A vulnerability unknown to the software vendor (0 days to fix) and actively being exploited", "A network error that lasts 24 hours", "A password that expires after one use"], a: 1, explain: "A Zero-Day is a critical flaw with no known patch. It is the most dangerous type of vulnerability because there is no immediate defense." },
+      { q: "What is the name of the social engineering attack targeting high-level executives or specific individuals?", opts: ["Watering Hole", "Vishing", "Spear Phishing", "Whaling"], a: 3, explain: "Whaling is a highly targeted form of phishing aimed specifically at senior leaders (whales) within an organization." },
+      { q: "What is the best way to ensure your vital data is recoverable after a ransomware attack?", opts: ["Using a very expensive antivirus", "Keeping one backup copy on the same computer", "Following the 3-2-1 Backup Rule (3 copies, 2 media types, 1 copy offsite)", "Disabling all network connections"], a: 2, explain: "The **3-2-1 rule** is the industry standard for robust data backup, ensuring at least one copy is isolated from the main threat." }
+    ];
+
+    const QUICK_TIPS = [
+      "**ACCESS:** Enable 2FA on all critical accounts. Prefer authenticator apps over SMS.",
+      "**PASSWORDS:** Use a unique and complex password for every account, managed by a reliable password manager.",
+      "**TRUST:** Never share your OTP (One-Time Password) or full credit card PIN with anyone.",
+      "**BROWSER:** Always verify the URL and look for the HTTPS protocol before entering sensitive data.",
+      "**PATCHING:** Keep your operating system and all apps updated to fix security vulnerabilities immediately.",
+      "**RECOVERY:** Maintain regular, air-gapped backups of important files to defeat ransomware.",
+    ];
+
+    // --- STATE MANAGEMENT ---
+    let inHard = false;
+    let currentQuizData = QUIZ;
+    let mainQuizAnswers = []; 
+    let hardModeAnswers = []; 
+    let idx = 0;
+    let timer = null;
+    let timeLeft = 0;
+    const TIME_PER_Q = 15; 
+    let mainScore = 0;
+    let hardScore = 0;
+    let answers = []; // Reference to the active answer array (mainQuizAnswers or hardModeAnswers)
+
+    // SCORING CONSTANTS
+    const MAIN_CORRECT_POINTS = 1;
+    const MAIN_INCORRECT_POINTS = 0;
+    const HARD_CORRECT_POINTS = 2;
+    const HARD_INCORRECT_PENALTY = -1;
+
+
+    // Cache DOM Elements 
+    const [introCard, quizCard, resultCard, leaderboardCard] = ['introCard', 'quizCard', 'resultCard', 'leaderboardCard'].map(id => document.getElementById(id));
+    const [qCount, questionText, optionsList, explanationBox, progressBar, timerDisplay] = ['qCount', 'questionText', 'optionsList', 'explanationBox', 'progressBar', 'timerDisplay'].map(id => document.getElementById(id));
+    const [nextBtn, resultArea, tipList, leaderboardList, introText, startBtn, hardModeWarning] = ['nextBtn', 'resultArea', 'tipList', 'leaderboardList', 'introText', 'startBtn', 'hardModeWarning'].map(id => document.getElementById(id));
+    const body = document.body;
+
+    // --- TYPING ANIMATION ---
+    const introMessage = `
+> Loading Cyber Security Awareness Quiz...
+> Created by: Aarish Walia
+> System Check: OK.
+> Test Mode: Standard (20 Questions).
+> Failure Protocol: Hard Mode Review (Time-Limited).
+> Review Scoring: High Reward, High Risk, Penalty Applied.
+`;
+    let charIndex = 0;
+
+    function typeWriter() {
+        if (charIndex < introMessage.length) {
+            introText.textContent += introMessage.charAt(charIndex);
+            charIndex++;
+            setTimeout(typeWriter, 40); // Typing speed
+        } else {
+            startBtn.style.display = 'block';
+        }
+    }
+
+    // --- CANVAS BACKGROUND (MATRIX RAIN) ---
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const letters = '01'; // Only binary
+    const fontSize = 16;
+    let columns = canvas.width / fontSize;
+    let drops = [];
+
+    for (let x = 0; x < columns; x++) {
+        drops[x] = 1;
+    }
+
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; // Trail effect
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Get live CSS variable for color
+        const varStyles = getComputedStyle(document.documentElement);
+        ctx.fillStyle = inHard ? varStyles.getPropertyValue('--wrong') : varStyles.getPropertyValue('--accent');
+        ctx.font = fontSize + 'px VT323';
+
+        for (let i = 0; i < drops.length; i++) {
+            const text = letters[Math.floor(Math.random() * letters.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+    let matrixInterval = setInterval(drawMatrix, 33); // 30 FPS
+
+    // --- FLOW CONTROL FUNCTIONS ---
+
+    function initTips() {
+      tipList.innerHTML = QUICK_TIPS.map(t => `<li>${t}</li>`).join('');
+    }
+
+    function startQuiz() {
+        // Reset visual state
+        body.classList.remove('hard-mode-bg');
+        quizCard.classList.remove('hard-mode-card');
+
+        introCard.style.display = 'none';
+        quizCard.style.display = 'block';
+        initTips();
+
+        // Initialize state for Main Quiz
+        inHard = false;
+        currentQuizData = QUIZ;
+        mainQuizAnswers = new Array(QUIZ.length).fill(undefined); // FIX: Ensure this is the active answer array
+        answers = mainQuizAnswers; 
+        idx = 0;
+        mainScore = 0;
+        hardScore = 0;
+        render();
+    }
+
+    function calculateMainScore() {
+        mainScore = 0;
+        mainQuizAnswers.forEach((a, i) => {
+            // Only count if an answer was actually recorded (not undefined)
+            if (a !== undefined && a === QUIZ[i].a) {
+                mainScore += MAIN_CORRECT_POINTS;
+            } else if (a !== undefined && a !== -1) { 
+                mainScore += MAIN_INCORRECT_POINTS; // 0 points for wrong answer
+            }
+        });
+    }
+
+    function calculateHardScore() {
+        hardScore = 0;
+        hardModeAnswers.forEach((a, i) => {
+            if (a !== undefined && a === currentQuizData[i].a) {
+                hardScore += HARD_CORRECT_POINTS;
+            } else if (a !== undefined && a !== -1) { 
+                hardScore += HARD_INCORRECT_PENALTY;
+            }
+        });
+    }
+
+    function enterHard() {
+      // FIX: Ensure main score is calculated *before* determining missed questions
+      calculateMainScore();
+      
+      let wrongIndices = [];
+      QUIZ.forEach((q, i) => {
+        // Only trigger Hard Mode for *incorrect* answers
+        if (mainQuizAnswers[i] !== undefined && mainQuizAnswers[i] !== q.a && mainQuizAnswers[i] !== -1) {
+            // Use modulo to cycle through the 5 hard concepts if there are many mistakes
+            wrongIndices.push(i % FULL_HARD_CONCEPTS.length); 
+        }
+      });
+      
+      const missedCount = wrongIndices.length;
+
+      if (missedCount > 0) {
+        // VISUAL HARD MODE WARNING
+        body.classList.add('hard-mode-bg');
+        quizCard.classList.add('hard-mode-card');
+        hardModeWarning.style.display = 'flex';
+        quizCard.style.opacity = '0'; 
+        
+        setTimeout(() => {
+            hardModeWarning.style.display = 'none';
+            quizCard.style.opacity = '1';
+            
+            const uniqueIndices = [...new Set(wrongIndices)];
+            currentQuizData = uniqueIndices.map(i => FULL_HARD_CONCEPTS[i]);
+            
+            // Initialize state for Hard Mode
+            inHard = true;
+            hardModeAnswers = new Array(currentQuizData.length).fill(undefined); 
+            answers = hardModeAnswers; // FIX: Switch active answers array
+            idx = 0;
+            
+            quizCard.style.display = 'block';
+            resultCard.style.display = 'none';
+            render();
+        }, 1500); 
+
+      } else {
+        finishQuiz();
+      }
+    }
+
+    function finishQuiz() {
+      clearInterval(timer);
+      quizCard.style.display = 'none';
+      resultCard.style.display = 'block';
+
+      // Ensure scores are final before presenting
+      if (inHard) {
+        calculateHardScore(); 
+      } else {
+        calculateMainScore();
+      }
+      
+      body.classList.remove('hard-mode-bg');
+      quizCard.classList.remove('hard-mode-card');
+      
+      const totalQuestions = QUIZ.length;
+      let finalMessage = '';
+      const totalFinalScore = mainScore + hardScore;
+
+      if (totalFinalScore >= totalQuestions * 1.5) { 
+        finalMessage = '>> ACCESS GRANTED: EXPERT SECURITY AGENT! 🏆';
+      } else if (totalFinalScore >= totalQuestions) {
+        finalMessage = '>> SYSTEM SECURE: HIGH AWARENESS LEVEL. 🎉';
+      } else {
+        finalMessage = '>> WARNING: TRAINING REQUIRED. ⚠️';
+      }
+
+      resultArea.innerHTML = `<h2>${finalMessage}</h2>
+        <p>TOTAL FINAL SCORE: <strong>${totalFinalScore}</strong> points</p>
+        <p>Main Quiz Score: ${mainScore} / ${totalQuestions}</p>`;
+      
+      if (inHard) {
+        const hardConceptsCount = currentQuizData.length;
+        resultArea.innerHTML += `<p>Hard Mode Bonus/Penalty: ${hardScore} points (${hardConceptsCount} concepts reviewed)</p>`;
+      }
+
+      showLeaderboard(totalFinalScore); 
+    }
+
+    // --- RENDER AND TIMER LOGIC ---
+
+    function render() {
+      clearInterval(timer);
+      explanationBox.style.display = 'none';
+      
+      const data = currentQuizData;
+      idx = Math.min(Math.max(0, idx), data.length - 1); 
+      const q = data[idx];
+      
+      questionText.textContent = `Q${idx + 1}: ${q.q}`; 
+      optionsList.innerHTML = '';
+      
+      const modeText = inHard ? `HARD MODE REVIEW (+${HARD_CORRECT_POINTS}/-${HARD_INCORRECT_PENALTY})` : `SECURITY QUIZ (+${MAIN_CORRECT_POINTS} / 0)`;
+      qCount.textContent = `${modeText} — Q${idx+1} / ${data.length}`;
+      
+      progressBar.style.width = inHard ? '100%' : `${((idx + 1) / data.length) * 100}%`;
+      timerDisplay.textContent = inHard ? `${timeLeft}s` : '--s';
+      
+      const isAnswered = answers[idx] !== undefined;
+      const isMarked = explanationBox.style.display === 'block';
+
+      // --- Button Logic (Simplified) ---
+      if (isMarked) {
+          nextBtn.textContent = (idx < data.length - 1) ? 'NEXT QUESTION >>' : (inHard ? 'VIEW FINAL RESULTS >>' : 'INITIATE REVIEW/FINISH >>');
+          nextBtn.disabled = false;
+      } else if (isAnswered) {
+          nextBtn.textContent = inHard ? 'CONFIRM ANSWER' : 'CHECK ANSWER';
+          nextBtn.disabled = false;
+      } else {
+          nextBtn.textContent = 'SELECT AN OPTION';
+          nextBtn.disabled = !inHard; // Only disable if not in hard mode (hard mode auto-starts timer)
+      }
+      
+      let selectedAnswer = answers[idx];
+
+      q.opts.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.textContent = `[${i + 1}] ${opt}`;
+        
+        if (selectedAnswer === i) {
+             btn.classList.add('selected');
+        }
+
+        // If the question is already marked, disable options
+        if (isMarked) {
+            btn.disabled = true;
+        }
+
+        btn.onclick = () => {
+          if (btn.disabled) return;
+          answers[idx] = i; 
+          document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          
+          if (!inHard) {
+             nextBtn.textContent = 'CHECK ANSWER';
+             nextBtn.disabled = false;
+          } else {
+             // In hard mode, selection auto-marks
+             markAnswer(); 
+          }
+        };
+        optionsList.appendChild(btn);
+      });
+      
+      // If already marked from a previous state (like auto-advance)
+      if (isMarked) {
+         markAnswer(false); 
+      } else if (inHard && !isAnswered) {
+          startTimer();
+      }
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timeLeft = TIME_PER_Q;
+      timerDisplay.textContent = `${timeLeft}s`;
+      timer = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = `${timeLeft}s`;
+        progressBar.style.width = `${(timeLeft / TIME_PER_Q) * 100}%`;
+        if (timeLeft <= 0) {
+          // Time out is recorded as -1
+          if (answers[idx] === undefined) answers[idx] = -1; 
+          markAnswer(true); // Auto-advance on time out
+        }
+      }, 1000);
+    }
+
+    function markAnswer(autoAdvance = false) {
+      clearInterval(timer);
+      const data = currentQuizData;
+      const q = data[idx];
+      const sel = answers[idx];
+      const btns = optionsList.querySelectorAll('button');
+      let isCorrect = (sel === q.a);
+      let points = 0;
+
+      // Determine points for display in the explanation box
+      if (inHard) {
+        points = isCorrect ? HARD_CORRECT_POINTS : (sel === -1 ? 0 : HARD_INCORRECT_PENALTY);
+      } else {
+        points = isCorrect ? MAIN_CORRECT_POINTS : (sel === -1 ? 0 : MAIN_INCORRECT_POINTS);
+      }
+
+      if (!inHard) progressBar.style.width = `${((idx + 1) / data.length) * 100}%`;
+
+      btns.forEach((b, i) => {
+        b.disabled = true;
+        b.classList.remove('selected');
+        if (i === q.a) {
+          b.classList.add('correct'); 
+        } else if (sel === i && !isCorrect) {
+          b.classList.add('wrong'); 
+        }
+      });
+      
+      const pointText = points >= 0 ? `+${points} POINTS` : `${points} POINTS`;
+
+      const feedback = (sel === -1) ? '>> ERROR: TIME OUT! (NO RESPONSE)' : (isCorrect ? `>> RESPONSE ACCEPTED. (${pointText})` : `>> ACCESS DENIED. (${pointText})`);
+      explanationBox.innerHTML = `<strong>${feedback}</strong><br>EXPLANATION: ${q.explain}`;
+      explanationBox.style.display = 'block';
+      
+      // Set button text to NEXT QUESTION/FINISH after marking
+      if (idx < data.length - 1) {
+          nextBtn.textContent = 'NEXT QUESTION >>';
+      } else {
+          nextBtn.textContent = inHard ? 'VIEW FINAL RESULTS >>' : 'INITIATE REVIEW/FINISH >>';
+      }
+      nextBtn.disabled = false;
+
+      if (autoAdvance) {
+          setTimeout(nextQuestion, 2000); 
+      }
+    }
+
+    function nextQuestion() {
+      const data = currentQuizData;
+      if (idx < data.length - 1) {
+        idx++;
+        render();
+      } else {
+        if (!inHard) {
+            enterHard(); 
+        } else {
+            finishQuiz(); 
+        }
+      }
+    }
+
+    // --- EVENT HANDLERS ---
+    nextBtn.onclick = () => {
+      // Logic: If explanation is visible, move to next Q. If not, mark the answer.
+      if (explanationBox.style.display === 'block') {
+         nextQuestion();
+      } else if (answers[idx] !== undefined) {
+          // If a choice is made but not marked (this is the CHECK ANSWER step)
+          markAnswer();
+      } else {
+          alert(">> ALERT: SELECT AN OPTION TO CONFIRM.");
+      }
+    };
+
+    // --- LEADERBOARD ---
+    function showLeaderboard(latestScore) {
+      leaderboardCard.style.display = 'block';
+      const key = 'quiz_leaderboard';
+      let list = JSON.parse(localStorage.getItem(key) || '[]');
+      
+      const name = prompt('>> INPUT AGENT NAME (MAX 10 CHARACTERS):', 'AGENT X');
+      if (name && name.trim() !== '') {
+        list.push({ name: name.substring(0, 10).toUpperCase(), score: latestScore });
+        list.sort((a, b) => b.score - a.score);
+        list = list.slice(0, 5);
+        localStorage.setItem(key, JSON.stringify(list));
+      }
+      
+      const stored = JSON.parse(localStorage.getItem(key) || '[]');
+      leaderboardList.innerHTML = stored.map((e, i) => `<li>${i + 1}. <strong style="color:var(--accent);">${e.name}</strong>: ${e.score} POINTS</li>`).join('');
+    }
+
+    // --- INITIALIZATION ---
+    initTips(); 
+    typeWriter(); // Start the typing animation immediately
+  </script>
+</body>
+</html>
